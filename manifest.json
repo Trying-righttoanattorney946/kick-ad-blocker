@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Kick Ad Blocker — Skip Stream Ads on Kick.com",
+  "short_name": "Kick Ad Blocker",
+  "version": "1.0.0",
+  "description": "Skip and block video ads on Kick.com. Auto-skips in-player stream ads, mutes and hides ad overlays, blocks ad-network requests.",
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://kick.com/*", "https://*.kick.com/*"],
+      "js": ["src/shared/constants.js", "src/content/ad-blocker.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "Kick Ad Blocker",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ad_network_rules",
+        "enabled": true,
+        "path": "rules/ad-networks.json"
+      }
+    ]
+  }
+}

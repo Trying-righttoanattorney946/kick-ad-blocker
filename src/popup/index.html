@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kick Ad Blocker</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="head">
+      <div class="mark">
+        <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M64 11 L19 29 V63 C19 89 37 107 64 118 C91 107 109 89 109 63 V29 Z"
+            fill="#53fc18"
+          />
+          <path d="M53 45 L53 91 L89 68 Z" fill="#0b0e0f" />
+        </svg>
+      </div>
+      <div class="title">
+        Kick Ad Blocker
+        <small>Skip stream ads on Kick.com</small>
+      </div>
+    </div>
+
+    <div class="switch-row">
+      <span id="stateLabel" class="state">Protection on</span>
+      <input type="checkbox" id="toggle" class="toggle" checked />
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div id="adCount" class="n">0</div>
+        <div class="l">Video ads handled</div>
+      </div>
+      <div class="stat">
+        <div id="netCount" class="n">0</div>
+        <div class="l">Requests blocked</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span class="status">
+        <span id="dot" class="dot live"></span>
+        <span id="footText">Active on this tab</span>
+      </span>
+      <a id="repo" class="repo" target="_blank" rel="noopener noreferrer"
+        >Source on GitHub &#8599;</a
+      >
+    </div>
+
+    <script src="../shared/constants.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
