@@ -4,11 +4,8 @@
   "short_name": "Kick Ad Blocker",
   "version": "1.0.0",
   "description": "Skip and block video ads on Kick.com. Auto-skips in-player stream ads, mutes and hides ad overlays, blocks ad-network requests.",
-  "permissions": [
-    "declarativeNetRequest",
-    "declarativeNetRequestFeedback",
-    "storage"
-  ],
+  "homepage_url": "https://github.com/oguzhan18/kick-ad-blocker",
+  "permissions": ["declarativeNetRequest", "storage"],
   "background": {
     "service_worker": "src/background/service-worker.js"
   },
@@ -25,12 +22,14 @@
     "default_title": "Kick Ad Blocker",
     "default_icon": {
       "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
   "icons": {
     "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },

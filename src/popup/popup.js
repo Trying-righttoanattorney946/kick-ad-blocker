@@ -1,59 +1,57 @@
-const elements = {
-  toggle: document.getElementById("toggle"),
-  stateLabel: document.getElementById("stateLabel"),
-  adCount: document.getElementById("adCount"),
-  netCount: document.getElementById("netCount"),
-  dot: document.getElementById("dot"),
-  footText: document.getElementById("footText"),
-  repo: document.getElementById("repo"),
+const { STORAGE_KEY, REPOSITORY_URL } = KickAdBlocker;
+
+const AD_NETWORK_RULES_PATH = "rules/ad-networks.json";
+
+const ui = {
+  protectionToggle: document.getElementById("protectionToggle"),
+  protectionLabel: document.getElementById("protectionLabel"),
+  adsSkippedValue: document.getElementById("adsSkippedValue"),
+  blockedNetworksValue: document.getElementById("blockedNetworksValue"),
+  activityIndicator: document.getElementById("activityIndicator"),
+  activityLabel: document.getElementById("activityLabel"),
+  repositoryLink: document.getElementById("repositoryLink"),
 };
 
-function render(enabled) {
-  elements.toggle.checked = enabled;
-  elements.stateLabel.textContent = enabled ? "Protection on" : "Protection off";
-  elements.stateLabel.classList.toggle("off", !enabled);
-  elements.dot.classList.toggle("live", enabled);
-  elements.footText.textContent = enabled ? "Active on this tab" : "Paused";
+function renderProtectionState(enabled) {
+  ui.protectionToggle.checked = enabled;
+  ui.protectionLabel.textContent = enabled ? "Protection on" : "Protection off";
+  ui.protectionLabel.classList.toggle("is-off", !enabled);
+  ui.activityIndicator.classList.toggle("is-live", enabled);
+  ui.activityLabel.textContent = enabled ? "Watching for ads" : "Paused";
 }
 
-function loadSettings() {
-  chrome.storage.local.get(
-    { [KAB.STORAGE.ENABLED]: true, [KAB.STORAGE.ADS_HANDLED]: 0 },
-    (stored) => {
-      render(stored[KAB.STORAGE.ENABLED] !== false);
-      elements.adCount.textContent = stored[KAB.STORAGE.ADS_HANDLED] || 0;
-    }
-  );
+async function loadStoredState() {
+  const stored = await chrome.storage.local.get({
+    [STORAGE_KEY.PROTECTION_ENABLED]: true,
+    [STORAGE_KEY.ADS_SKIPPED]: 0,
+  });
+  renderProtectionState(stored[STORAGE_KEY.PROTECTION_ENABLED] !== false);
+  ui.adsSkippedValue.textContent = stored[STORAGE_KEY.ADS_SKIPPED] || 0;
 }
 
-function loadBlockedCount() {
-  chrome.runtime.sendMessage(
-    { type: KAB.MESSAGE.GET_BLOCKED_COUNT },
-    (response) => {
-      if (chrome.runtime.lastError) return;
-      if (typeof response?.count === "number") {
-        elements.netCount.textContent = response.count;
-      }
-    }
-  );
+async function loadBlockedNetworkCount() {
+  const response = await fetch(chrome.runtime.getURL(AD_NETWORK_RULES_PATH));
+  const rules = await response.json();
+  const blockedHosts = new Set(rules.map((rule) => rule.condition.urlFilter));
+  ui.blockedNetworksValue.textContent = blockedHosts.size;
 }
 
-function watchCounter() {
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes[KAB.STORAGE.ADS_HANDLED]) return;
-    elements.adCount.textContent =
-      changes[KAB.STORAGE.ADS_HANDLED].newValue || 0;
+function watchAdsSkipped() {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    const change = changes[STORAGE_KEY.ADS_SKIPPED];
+    if (areaName !== "local" || !change) return;
+    ui.adsSkippedValue.textContent = change.newValue || 0;
   });
 }
 
-elements.repo.href = KAB.REPO_URL;
+ui.repositoryLink.href = REPOSITORY_URL;
 
-elements.toggle.addEventListener("change", () => {
-  const enabled = elements.toggle.checked;
-  render(enabled);
-  chrome.storage.local.set({ [KAB.STORAGE.ENABLED]: enabled });
+ui.protectionToggle.addEventListener("change", () => {
+  const enabled = ui.protectionToggle.checked;
+  renderProtectionState(enabled);
+  chrome.storage.local.set({ [STORAGE_KEY.PROTECTION_ENABLED]: enabled });
 });
 
-loadSettings();
-loadBlockedCount();
-watchCounter();
+watchAdsSkipped();
+loadStoredState();
+loadBlockedNetworkCount();

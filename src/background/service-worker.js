@@ -1,21 +1,29 @@
 importScripts("/src/shared/constants.js");
 
-chrome.runtime.onInstalled.addListener(async () => {
-  const stored = await chrome.storage.local.get({
-    [KAB.STORAGE.ENABLED]: true,
-  });
-  await chrome.storage.local.set({
-    [KAB.STORAGE.ENABLED]: stored[KAB.STORAGE.ENABLED] !== false,
-  });
-});
+const { STORAGE_KEY, MESSAGE_TYPE } = KickAdBlocker;
+
+let counterWriteQueue = Promise.resolve();
+
+function recordSkippedAd() {
+  counterWriteQueue = counterWriteQueue
+    .catch(() => {})
+    .then(async () => {
+      const stored = await chrome.storage.local.get({
+        [STORAGE_KEY.ADS_SKIPPED]: 0,
+      });
+      await chrome.storage.local.set({
+        [STORAGE_KEY.ADS_SKIPPED]: (stored[STORAGE_KEY.ADS_SKIPPED] || 0) + 1,
+      });
+    });
+  return counterWriteQueue;
+}
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== KAB.MESSAGE.GET_BLOCKED_COUNT) return false;
+  if (message?.type !== MESSAGE_TYPE.AD_SKIPPED) return false;
 
-  chrome.declarativeNetRequest
-    .getMatchedRules({})
-    .then((result) => sendResponse({ count: result.rulesMatchedInfo.length }))
-    .catch(() => sendResponse({ count: 0 }));
+  recordSkippedAd()
+    .catch(() => {})
+    .then(() => sendResponse(true));
 
   return true;
 });

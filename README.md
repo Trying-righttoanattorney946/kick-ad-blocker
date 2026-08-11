@@ -1,152 +1,167 @@
-# Kick Ad Blocker — Skip Stream Ads on Kick.com (Chrome MV3)
+<div align="center">
 
-**Kick Ad Blocker is a Manifest V3 Chrome extension that skips and hides video
-ads on Kick.com livestreams.** It works on two layers: it blocks common
-ad-network requests before they load, and it detects the player's own "an ad is
-running" markers to mute, blank and fast-forward the ad clip in place.
+<img src="assets/logo.png" alt="Kick Ad Blocker" width="132">
 
-**How do you block ads on Kick?** Install the extension, open a channel, and it
-handles the pre-roll and mid-roll ads by itself — no per-stream setup, no
-settings to tune. The toolbar popup has a single on/off toggle plus counters
-for ads handled and requests blocked.
+# Kick Ad Blocker
 
-Built and tested against Kick.com with the site's permission, as an interview
-case study. The player-side selectors are Kick-specific; the network block list
-is generic and works anywhere.
+**Kick shows you an ad before it shows you the stream. This extension deletes that moment.**
 
-## Install (unpacked, for review)
+[![License: MIT](https://img.shields.io/badge/license-MIT-23e06b?style=flat-square)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/manifest-v3-23e06b?style=flat-square)](https://developer.chrome.com/docs/extensions/develop/migrate)
+[![Dependencies: none](https://img.shields.io/badge/dependencies-none-23e06b?style=flat-square)](#no-build-step)
+[![Stars](https://img.shields.io/github/stars/oguzhan18/kick-ad-blocker?style=flat-square&color=23e06b)](https://github.com/oguzhan18/kick-ad-blocker/stargazers)
 
-1. Open `chrome://extensions`.
-2. Turn on **Developer mode** (top-right).
-3. Click **Load unpacked** and select this folder.
-4. Pin the extension and click it to see the toggle and counters.
+</div>
 
-## Project structure
+---
+
+<div align="center">
+  <img src="assets/popup.png" alt="The Kick Ad Blocker popup" width="300">
+</div>
+
+Install it, open a channel, done. No per-stream setup, no filter lists to
+subscribe to, no options page to read. One toggle and two counters.
+
+## Two layers, and that's the whole design
+
+**Network layer.** A static `declarativeNetRequest` rule set drops requests to
+the usual ad and measurement hosts — DoubleClick, googlesyndication, adnxs,
+amazon-adsystem, the IMA SDK — before the page ever sees them. Declarative
+rules run inside Chrome's network stack: no background loop, no JavaScript per
+request, no measurable cost.
+
+**Player layer.** Kick's player labels its own ads — a click-catcher overlay, a
+"Learn More" button, an `Ad progress` bar, an `Ad 1 of 2` badge. A content
+script watches for those markers, and the moment one appears it blanks the
+frame, mutes the audio, hides every piece of ad chrome, and runs the clip at
+16x while seeking to the edge of the buffer.
+
+When the markers disappear, everything goes back exactly as it was — including
+the mute state and playback rate the viewer had chosen before the ad.
+
+## Install
+
+```
+1. Open chrome://extensions
+2. Turn on Developer mode
+3. Load unpacked → select this folder
+```
+
+## The permission list is two lines, and that's the point
+
+| Permission              | Why it exists                              |
+| ----------------------- | ------------------------------------------ |
+| `declarativeNetRequest` | the block list in `rules/ad-networks.json` |
+| `storage`               | the on/off toggle and the ads counter      |
+
+No `host_permissions`, so Chrome never shows *"read your data on all
+websites."* A declared content script is granted by its `matches` alone, and a
+`block` rule needs no host permission — only `redirect` and `modifyHeaders` do.
+The player script runs on `kick.com` and nowhere else; the network block list
+still applies everywhere.
+
+Nothing is collected, nothing is sent anywhere. The two counters live in
+`chrome.storage.local` on your machine.
+
+## The two details that make the skip actually work
+
+Most naive implementations of this stall the player instead of skipping the ad.
+Two rules avoid that:
+
+**Never seek to `duration`.** On an MSE/HLS player that timestamp is not
+buffered, so playback hangs there and `ended` never fires — the ad freezes
+on screen and its overlay never tears down. The seek target is pinned half a
+second *inside* loaded media (`SEEK_SAFETY_MARGIN_S`), and the seek is skipped
+entirely when there is under a second to gain, because landing on the buffer
+edge re-stalls the player for nothing.
+
+**Throttle the pokes.** The `MutationObserver` fires many times per second
+while the controls animate, and seeking on every one of them pins playback in
+place. Writes to the video are rate-limited to `PLAYER_NUDGE_INTERVAL_MS`. The
+observer watches `data-testid` and `aria-label` only — never `class`, which the
+player rewrites constantly — with a 500 ms interval as a safety net, because
+players recreate the `<video>` node mid-ad.
+
+If an ad marker somehow never clears, a three-minute failsafe hands the player
+back rather than leaving it blacked out.
+
+## What it can't do
+
+Worth saying out loud, because every ad blocker has this section and most
+skip it:
+
+- **Fast-forward only works on *discrete* ad clips** — a separate, seekable
+  `<video>` with a finite `duration`. Under **server-side ad insertion
+  (SSAI)** the ad is stitched into the same HLS manifest as the stream: there
+  is no separate clip to seek and no ad request to block. Beating that means
+  manifest/segment surgery — a filtering proxy or a custom MSE loader — which
+  is a different project than a content script.
+- **Hiding and muting always work.** Whatever the delivery, the overlay comes
+  off and the audio goes quiet.
+- **The skip is bounded by download speed, not playback speed.** At 16x pinned
+  to the buffer edge, the ad is consumed as fast as its segments arrive, so the
+  player's spinner runs for the whole ad. That spinner is hidden rather than
+  avoided — keeping it quiet would mean playing the ad closer to real time,
+  which is the opposite of the goal.
+- Selectors are tuned to Kick's current markup. If the site ships a redesign,
+  `AD_SIGNAL_SELECTORS` and `AD_DECORATION_SELECTORS` are the one place to fix.
+
+## No build step
 
 ```
 manifest.json
-icons/                      16 / 48 / 128 px action + store icons
-rules/ad-networks.json      declarativeNetRequest block list
+icons/                        16 / 32 / 48 / 128 px
+rules/ad-networks.json        declarativeNetRequest block list
 src/
-  shared/constants.js       storage keys, message names, repo URL
-  content/ad-blocker.js     detector / mask / player / controller
+  shared/constants.js         storage keys, message types, repo URL
+  content/ad-blocker.js       detector · mask · player · controller
   background/service-worker.js
-  popup/index.html + popup.css + popup.js
+  popup/index.html · popup.css · popup.js
 ```
 
-The source files carry no comments by design: the reasoning lives in this
-README, and the code is expected to read on its own. Named constants
-(`SEEK_SAFETY_MARGIN_S`, `VIDEO_POKE_INTERVAL_MS`, `AD_FAILSAFE_MS`) stand in
-for the explanations that would otherwise sit inline.
+No bundler, no transpiler, no `node_modules`. `shared/constants.js` is a plain
+script loaded three ways — listed in `content_scripts`, `importScripts()`d by
+the service worker, and a `<script>` tag in the popup — so all three contexts
+agree on the storage keys without a module graph. Edit a file, hit reload.
 
 `content/ad-blocker.js` splits into four units with one job each:
 
-| Unit         | Responsibility                                          |
-| ------------ | ------------------------------------------------------- |
-| `detector`   | is an ad on screen right now                             |
-| `mask`       | inject/remove the CSS that blanks the frame and ad chrome|
-| `player`     | mute, seek and rate-control every `<video>`              |
-| `controller` | state machine + timing; the only unit that owns "when"   |
+| Unit         | Owns                                                     |
+| ------------ | -------------------------------------------------------- |
+| `detector`   | is an ad on screen right now                              |
+| `mask`       | the CSS that blanks the frame and the ad chrome           |
+| `player`     | mute, seek and rate-control every `<video>`, then undo it |
+| `controller` | the state machine — the only unit that decides *when*     |
 
-There is no build step and no bundler. `shared/constants.js` is a plain script
-loaded three ways — listed in `content_scripts.js`, `importScripts()`d by the
-service worker, and a `<script>` tag in the popup — so all three contexts agree
-on the storage keys without a module graph.
+The source carries no comments by design. The reasoning lives here; named
+constants (`SEEK_SAFETY_MARGIN_S`, `PLAYER_NUDGE_INTERVAL_MS`,
+`STUCK_AD_TIMEOUT_MS`) stand in for the explanations that would otherwise sit
+inline.
 
-## How it works
+## Contributing
 
-**Network layer — `rules/ad-networks.json` + declarativeNetRequest.**
-Static block rules for common ad/tracking hosts (DoubleClick, googlesyndication,
-adnxs, amazon-adsystem, IMA SDK, etc.). This runs without a background loop and
-is the cheapest, most reliable win. Add or remove hosts by editing that file.
+Blocking one more ad network is six lines of JSON in `rules/ad-networks.json` —
+next free `id`, one rule per host:
 
-**Player layer — `src/content/ad-blocker.js`.**
-The pasted markup exposes clear "ad is playing" signals, so detection keys off
-those rather than guessing:
+```json
+{
+  "id": 11,
+  "priority": 1,
+  "action": { "type": "block" },
+  "condition": {
+    "urlFilter": "||example-ads.com^",
+    "resourceTypes": ["script", "xmlhttprequest", "image", "sub_frame", "media"]
+  }
+}
+```
 
-- `[data-testid="ad-click-overlay"]` — the transparent click-catcher
-- `[data-testid="ad-learn-more"]`, `[data-testid="ad-fullscreen"]`
-- `[aria-label="Ad progress"]` — the ad progress bar
-- an `Ad 1 of N` badge as a text fallback
+Broken detection after a Kick redesign? Open an issue with the player's DOM
+around the ad overlay — that snippet is the whole fix.
 
-When any of those appear, the script:
+## License
 
-1. blanks the frame (`video { visibility: hidden }`) so the ad is never seen
-   even when it cannot be skipped — the player wrapper is already black,
-2. mutes every `<video>`,
-3. seeks to the end of the **buffered** range (not `duration`) and, for a
-   discrete clip with a finite `duration`, runs it at 16x,
-4. hides the overlay, click-catcher, "Learn More", "Why this ad?", the ad
-   progress bar, the `Ad 1 of N` badge and the buffering spinner,
-5. bumps the "ads handled" counter in `chrome.storage`.
+[MIT](LICENSE) — do what you like.
 
-Two things keep this from stalling the player, which is the failure mode that
-freezes an ad on screen instead of skipping it:
-
-- **Never seek to `duration`.** With an MSE/HLS player that point is not
-  buffered, so playback hangs there and `ended` never fires — the ad sits
-  frozen and its overlay never tears down. `SEEK_SAFETY_MARGIN_S` keeps the
-  target half a second inside loaded media, and `MIN_SEEK_GAIN_S` skips the
-  seek entirely when there is less than a second to gain, because landing on
-  the buffer edge re-stalls the player for no benefit.
-- **Throttle the video pokes** (`VIDEO_POKE_INTERVAL_MS`). The
-  `MutationObserver` fires many times per second while the controls animate;
-  seeking on every one of those pins playback in place. The observer watches
-  `data-testid` / `aria-label` only — not `class`, which the player rewrites
-  constantly — with a 500 ms interval as a safety net because players recreate
-  the `<video>` node mid-ad.
-
-When the ad markers disappear, the controller restores `playbackRate`, removes
-the mask, and nudges a stalled stream back into play.
-
-The popup toggle writes the enabled flag to `chrome.storage.local`; the content
-script reads it and listens for changes, so pausing takes effect without a
-reload.
-
-## Permissions, and why each one is there
-
-| Permission                     | Why                                                |
-| ------------------------------ | -------------------------------------------------- |
-| `declarativeNetRequest`        | the static block list in `rules/ad-networks.json`   |
-| `declarativeNetRequestFeedback`| `getMatchedRules()` for the popup's blocked count   |
-| `storage`                      | the on/off toggle and the counters                  |
-
-There is **no `host_permissions` entry**, so Chrome does not ask for "read your
-data on all websites". A declared content script is granted by its `matches`
-alone, and a declarativeNetRequest `block` rule needs no host permission — only
-`redirect` and `modifyHeaders` do. So the player script runs on `kick.com` and
-nowhere else, while the network block list still applies everywhere.
-
-If an ad marker ever fails to clear, the controller trips a failsafe after
-`AD_FAILSAFE_MS` (three minutes) and gives the player back rather than leaving
-it blacked out for good.
-
-## Honest limitations (worth stating in the interview)
-
-- **Client-side hiding + mute always works.** It removes the overlay and kills
-  the audio regardless of how the ad is delivered.
-- **The skip is bounded by download speed, not by playback speed.** At 16x
-  with the seek pinned to the buffer edge, the ad is consumed as fast as its
-  segments arrive — so the buffer stays empty and the player's spinner runs for
-  the whole ad. That spinner is hidden rather than avoided: keeping it quiet
-  would mean playing the ad closer to real time, which is the opposite of the
-  goal.
-- **Fast-forward/seek only works for *discrete* ad clips** — a separate,
-  seekable `<video>` with a finite `duration`. If the platform uses
-  **server-side ad insertion (SSAI)**, the ad is stitched into the same HLS
-  manifest as the stream, so there is no separate clip to seek and no ad
-  request to block. Defeating that properly means manifest/segment
-  manipulation (e.g. a filtering proxy or a custom MSE loader that drops ad
-  segments), which is a much larger piece of work than a content script.
-- Selectors are tuned to the markup sample provided. If the site ships an
-  update, `AD_MARKERS` and `AD_CHROME_SELECTORS` are the one place to adjust.
-- The blocked-request counter comes from `getMatchedRules()`, which only
-  reports rules matched in the last five minutes, so it is a live indicator
-  rather than a lifetime total.
-
-## Branding note
-
-The icon is an original shield-and-play mark. It borrows Kick's bright green
-(`#53FC18`) on dark so it sits naturally next to the site, but it is **not**
-Kick's logo — permission to test on the site is not a trademark licence, and
-the Chrome Web Store rejects icons that imitate another company's branding.
+Not affiliated with, endorsed by, or connected to Kick.com or Kick Streaming
+Pty Ltd. The logo is original artwork; "Kick" is used only to name the site
+this extension works on.

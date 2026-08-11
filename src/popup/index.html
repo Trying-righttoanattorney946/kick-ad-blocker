@@ -7,47 +7,55 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="head">
-      <div class="mark">
-        <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M64 11 L19 29 V63 C19 89 37 107 64 118 C91 107 109 89 109 63 V29 Z"
-            fill="#53fc18"
-          />
-          <path d="M53 45 L53 91 L89 68 Z" fill="#0b0e0f" />
-        </svg>
-      </div>
-      <div class="title">
-        Kick Ad Blocker
-        <small>Skip stream ads on Kick.com</small>
-      </div>
-    </div>
+    <header class="header">
+      <img
+        class="brand-mark"
+        src="../../icons/icon128.png"
+        alt=""
+        width="44"
+        height="44"
+      />
+      <span class="brand-text">
+        <span class="brand-name">Kick Ad Blocker</span>
+        <span class="brand-tagline">Stream ads, skipped for you</span>
+      </span>
+    </header>
 
-    <div class="switch-row">
-      <span id="stateLabel" class="state">Protection on</span>
-      <input type="checkbox" id="toggle" class="toggle" checked />
-    </div>
+    <label class="protection-switch">
+      <span id="protectionLabel" class="protection-label">Protection on</span>
+      <input
+        id="protectionToggle"
+        class="toggle"
+        type="checkbox"
+        checked
+        aria-label="Enable ad protection"
+      />
+    </label>
 
     <div class="stats">
       <div class="stat">
-        <div id="adCount" class="n">0</div>
-        <div class="l">Video ads handled</div>
+        <span id="adsSkippedValue" class="stat-value">0</span>
+        <span class="stat-label">Ads skipped</span>
       </div>
       <div class="stat">
-        <div id="netCount" class="n">0</div>
-        <div class="l">Requests blocked</div>
+        <span id="blockedNetworksValue" class="stat-value">0</span>
+        <span class="stat-label">Networks blocked</span>
       </div>
     </div>
 
-    <div class="foot">
-      <span class="status">
-        <span id="dot" class="dot live"></span>
-        <span id="footText">Active on this tab</span>
+    <footer class="footer">
+      <span class="activity">
+        <span id="activityIndicator" class="activity-indicator is-live"></span>
+        <span id="activityLabel">Watching for ads</span>
       </span>
-      <a id="repo" class="repo" target="_blank" rel="noopener noreferrer"
-        >Source on GitHub &#8599;</a
+      <a
+        id="repositoryLink"
+        class="source-link"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Source &#8599;</a
       >
-    </div>
+    </footer>
 
     <script src="../shared/constants.js"></script>
     <script src="popup.js"></script>
